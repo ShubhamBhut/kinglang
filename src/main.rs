@@ -4,7 +4,7 @@ use crate::scanner::*;
 use std::{
     env, fs,
     io::{self, BufRead, Write},
-    process::exit
+    process::exit,
 };
 
 fn run_file(path: &str) -> Result<(), String> {
@@ -17,7 +17,7 @@ fn run_file(path: &str) -> Result<(), String> {
 fn run(contents: &str) -> Result<(), String> {
     let scanner = Scanner::new(contents);
     let tokens = scanner.scan_tokens()?;
-    
+
     for token in tokens {
         println!("{:?}", token)
     }
@@ -38,12 +38,16 @@ fn run_prompt() -> Result<(), String> {
         match handle.read_line(&mut buffer) {
             Ok(n) => {
                 if n <= 1 {
-                    return Ok(())
+                    return Ok(());
                 }
-            },
+            }
             Err(_) => return Err("Could not read line".to_string()),
         }
-        println!("You wrote: {}", buffer);
+        println!("ECHO: {}", buffer);
+        match run(&buffer) {
+            Ok(_) => (),
+            Err(msg) => println!("{}", msg),
+        }
     }
 }
 
