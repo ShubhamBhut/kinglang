@@ -1,47 +1,111 @@
-pub struct Scanner {}
+use std::{fmt::format, result};
+
+pub struct Scanner {
+    source: String,
+    tokens: Vec<Token>,
+    start: usize,
+    current: usize,
+    line: u64,
+}
 
 impl Scanner {
-    pub fn new(_source: &str) -> Self {
-        Self {}
-    }
-
-    pub fn scan_tokens(self: &Self) -> Result<Vec<Token>, String> {
-        todo!()
-    }
-}
-
-#[derive(Debug)]
-pub enum LiteralValue {
-    IntValue(i64),
-    FValue(f64),
-    StringValue(String),
-    IdentifierValue(String),
-}
-
-#[derive(Debug)]
-pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<LiteralValue>,
-    line_number: u64,
-}
-
-impl Token {
-    fn new(token_type: TokenType, lexeme: String, literal: Option<LiteralValue>, line_number: u64) ->Self {
+    pub fn new(source: &str) -> Self {
         Self {
-            token_type,
-            lexeme, 
-            literal,
-            line_number
+            source: source.to_string(),
+            tokens: vec![],
+            start: 0,
+            current: 0,
+            line: 1,
         }
     }
+
+    pub fn scan_tokens(self: &mut Self) -> Result<Vec<Token>, String> {
+        let mut errors = vec![];
+
+        while !self.is_at_end() {
+            self.start = self.current;
+            match self.scan_tokens() {
+                Ok(_) => (),
+                Err(msg) => errors.push(msg),
+            }
+            self.scan_tokens()?;
+        }
+
+        self.tokens.push(Token {
+            token_type: Eof,
+            lexeme: "".to_string(),
+            literal: None,
+            line_number: self.line,
+        });
+
+        if errors.len() > 0 {
+            let mut joined_errors = "".to_string();
+            errors.iter().map(|msg| {
+                joined_errors.push_str(msg);
+                joined_errors.push_str("\n");
+            });
+            return Err(joined_errors)
+        }
+
+        Ok(self.tokens.clone())
+    }
+
+    fn is_at_end(self: &Self) -> bool {
+        self.current >= self.source.len().try_into().unwrap()
+    }
+
+    fn scan_token(self: &mut Self) -> Result<(), String> {
+        let c = self.advance();
+
+        match c {
+            '(' => self.add_token(LeftParen),
+            ')' => self.add_token(RightParen),
+            '{' => self.add_token(LeftBrace),
+            '}' => self.add_token(RightBrace),
+            ',' => self.add_token(Comma),
+            '.' => self.add_token(Dot),
+            '-' => self.add_token(Minus),
+            '+' => self.add_token(Plus),
+            ';' => self.add_token(Semicolon),
+            '*' => self.add_token(Star),
+            _ => return Err(format!("Unrecognised character at line {}: {}", self.line, c)),
+        }
+
+        todo!()
+    }
+
+    fn advance(self: &mut Self) -> char {
+        let c = self.source.as_bytes()[self.current];
+        self.current += 1;
+
+        c as char
+    }
+
+    fn add_token(self: &mut Self, token_type: TokenType) {
+        self.add_token_lit(token_type, None);
+    }
+
+    fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
+        let mut text = "".to_string();
+        let bytes = self.source.as_bytes();
+
+        for i in self.start..self.current {
+            text.push(bytes[i] as char);
+        }
+        self.tokens.push(Token {
+            token_type: token_type,
+            lexeme: text,
+            literal: literal,
+            line_number: self.line,
+        });
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     //single char
     LeftParen,
-    Rightaren,
+    RightParen,
     LeftBrace,
     RightBrace,
     Comma,
@@ -50,7 +114,7 @@ pub enum TokenType {
     Plus,
     Semicolon,
     Slash,
-    Start,
+    Star,
 
     //one or two chars
     Bang,
@@ -85,5 +149,49 @@ pub enum TokenType {
     VAR,
     WHILE,
 
-    EOF,
+    Eof,
+}
+
+use TokenType::*;
+
+#[derive(Debug, Clone)]
+pub enum LiteralValue {
+    IntValue(i64),
+    FValue(f64),
+    StringValue(String),
+    IdentifierValue(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct Token {
+    token_type: TokenType,
+    lexeme: String,
+    literal: Option<LiteralValue>,
+    line_number: u64,
+}
+
+impl Token {
+    pub fn new(
+        token_type: TokenType,
+        lexeme: String,
+        literal: Option<LiteralValue>,
+        line_number: u64,
+    ) -> Self {
+        Self {
+            token_type,
+            lexeme,
+            literal,
+            line_number,
+        }
+    }
+
+    pub fn to_string(self: &Self) -> String {
+        format!("{} {} {:?}", self.token_type, self.lexeme, self.literal)
+    }
+}
+
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
