@@ -1,4 +1,11 @@
-use std::{env, process::exit, fs, io::{self, BufRead}};
+mod scanner;
+use crate::scanner::*;
+
+use std::{
+    env, fs,
+    io::{self, BufRead, Write},
+    process::exit
+};
 
 fn run_file(path: &str) -> Result<(), String> {
     match fs::read_to_string(path) {
@@ -7,26 +14,42 @@ fn run_file(path: &str) -> Result<(), String> {
     }
 }
 
-fn run(contents: &str) ->Result<(), String>{
-    return Err("Not implimented!".to_string());
+fn run(contents: &str) -> Result<(), String> {
+    let scanner = Scanner::new(contents);
+    let tokens = scanner.scan_tokens()?;
+    
+    for token in tokens {
+        println!("{:?}", token)
+    }
+
+    return Ok(());
 }
 
 fn run_prompt() -> Result<(), String> {
-    println!("> ");
-    let mut buffer = String::new();
-    let stdin = io::stdin();
-    let mut handle = stdin.lock();
-    match handle.read_line(&mut buffer) {
-        Ok(_) => (),
-        Err(_) => return Err("Could not read line".to_string())
+    loop {
+        println!("> ");
+        let mut buffer = String::new();
+        match io::stdout().flush() {
+            Ok(_) => (),
+            Err(_) => return Err("Could not flush stdout".to_string()),
+        }
+        let stdin = io::stdin();
+        let mut handle = stdin.lock();
+        match handle.read_line(&mut buffer) {
+            Ok(n) => {
+                if n <= 1 {
+                    return Ok(())
+                }
+            },
+            Err(_) => return Err("Could not read line".to_string()),
+        }
+        println!("You wrote: {}", buffer);
     }
-    println!("You wrote: {}", buffer);
-    Ok(())
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() > 2 {
         println!("Usage: kinglang [script]");
         exit(64);
