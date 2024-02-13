@@ -1,4 +1,4 @@
-use std::{fmt::format, result};
+use std::string::String;
 
 pub struct Scanner {
     source: String,
@@ -24,11 +24,10 @@ impl Scanner {
 
         while !self.is_at_end() {
             self.start = self.current;
-            match self.scan_tokens() {
+            match self.scan_token() {
                 Ok(_) => (),
                 Err(msg) => errors.push(msg),
             }
-            self.scan_tokens()?;
         }
 
         self.tokens.push(Token {
@@ -40,18 +39,18 @@ impl Scanner {
 
         if errors.len() > 0 {
             let mut joined_errors = "".to_string();
-            errors.iter().map(|msg| {
+            errors.iter().for_each(|msg| {
                 joined_errors.push_str(msg);
                 joined_errors.push_str("\n");
             });
-            return Err(joined_errors)
+            return Err(joined_errors);
         }
 
         Ok(self.tokens.clone())
     }
 
     fn is_at_end(self: &Self) -> bool {
-        self.current >= self.source.len().try_into().unwrap()
+        self.current >= self.source.len()
     }
 
     fn scan_token(self: &mut Self) -> Result<(), String> {
@@ -68,10 +67,80 @@ impl Scanner {
             '+' => self.add_token(Plus),
             ';' => self.add_token(Semicolon),
             '*' => self.add_token(Star),
-            _ => return Err(format!("Unrecognised character at line {}: {}", self.line, c)),
+            '!' => {
+                let token = if self.char_match('=') {
+                    BangEqual
+                } else {
+                    Equal
+                };
+                self.add_token(token);
+            },
+            '=' => {
+                let token = if self.char_match('=') {
+                    EqualEqual
+                } else {
+                    Equal
+                };
+                self.add_token(token);
+            },
+            '<' => {
+                let token = if self.char_match('=') {
+                    LessEqual
+                } else {
+                    Less
+                };
+                self.add_token(token);
+            },
+            '>' => {
+                let token = if self.char_match('=') {
+                    GreaterEqual
+                } else {
+                    Greater
+                };
+                self.add_token(token);
+            },
+            '/' => {
+                if self.char_match('/') {
+                    loop {
+                        if self.peek() == '\n' || self.is_at_end() {
+                            break;
+                        }
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(Slash);
+                }
+            },
+            ' ' | '\r' | '\t' => {},
+            '\n' => self.line += 1,
+            _ => {
+                return Err(format!(
+                    "Unrecognised character at line {}: {}",
+                    self.line, c
+                ))
+            }
         }
 
-        todo!()
+        Ok(())
+    }
+
+    fn peek(self: &Self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+        self.source.as_bytes()[self.current] as char
+    }
+
+    fn char_match(self: &mut Self, ch: char) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+        if self.source.as_bytes()[self.current] as char != ch {
+            return false;
+        } else {
+            self.current += 1;
+            return true;
+        }
     }
 
     fn advance(self: &mut Self) -> char {
@@ -101,7 +170,7 @@ impl Scanner {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     //single char
     LeftParen,
@@ -115,6 +184,7 @@ pub enum TokenType {
     Semicolon,
     Slash,
     Star,
+    Not,
 
     //one or two chars
     Bang,
@@ -193,5 +263,38 @@ impl Token {
 impl std::fmt::Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handle_one_char_tokens() {
+        let source = "(}{)";
+        let mut scanner = Scanner::new(source);
+        let _ = scanner.scan_tokens();
+
+        assert_eq!(scanner.tokens.len(), 5);
+        assert_eq!(scanner.tokens[0].token_type, LeftParen);
+        assert_eq!(scanner.tokens[1].token_type, RightBrace);
+        assert_eq!(scanner.tokens[2].token_type, LeftBrace);
+        assert_eq!(scanner.tokens[3].token_type, RightParen);
+        assert_eq!(scanner.tokens[4].token_type, Eof);
+    }
+
+    #[test] 
+    fn handle_two_char_tokens() {
+        let source = "= != == >=";
+        let mut scanner = Scanner::new(source);
+        let _ = scanner.scan_tokens();
+
+        assert_eq!(scanner.tokens.len(), 5);
+        assert_eq!(scanner.tokens[0].token_type, Equal);
+        assert_eq!(scanner.tokens[1].token_type, BangEqual);
+        assert_eq!(scanner.tokens[2].token_type, EqualEqual);
+        assert_eq!(scanner.tokens[3].token_type, GreaterEqual);
+        assert_eq!(scanner.tokens[4].token_type, Eof);
     }
 }
