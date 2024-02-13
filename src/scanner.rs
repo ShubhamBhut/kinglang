@@ -40,10 +40,10 @@ impl Scanner {
 
         if errors.len() > 0 {
             let mut joined_errors = "".to_string();
-            errors.iter().for_each(|msg| {
-                joined_errors.push_str(msg);
+            for error in errors {
+                joined_errors.push_str(&error);
                 joined_errors.push_str("\n");
-            });
+            };
             return Err(joined_errors);
         }
 
@@ -140,7 +140,7 @@ impl Scanner {
 
         self.advance();
 
-        let value = self.source.as_bytes()[self.start+1 .. self.current].iter().map(|byt| *byt as char).collect::<String>();
+        let value = self.source.as_bytes()[self.start+1 .. self.current-1].iter().map(|byt| *byt as char).collect::<String>();
         
         self.add_token_lit(StringKing, Some(StringValue(value)));
 
@@ -179,11 +179,8 @@ impl Scanner {
 
     fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
         let mut text = "".to_string();
-        let bytes = self.source.as_bytes();
+        let lit = self.source[self.start .. self.current].chars().map(|ch| text.push(ch));
 
-        for i in self.start..self.current {
-            text.push(bytes[i] as char);
-        }
         self.tokens.push(Token {
             token_type: token_type,
             lexeme: text,
@@ -331,6 +328,32 @@ mod tests {
         assert_eq!(scanner.tokens[0].token_type, StringKing);
         match scanner.tokens[0].literal.clone().unwrap() {
             StringValue(val) => assert_eq!(val, "ABC"),
+            _ => panic!("Incorrect literal type")
+        }
+    }
+
+    #[test]
+    fn handle_string_literal_unterminated() {
+        let source = r#""ABC"#;
+        let mut scanner = Scanner::new(source);
+        let result = scanner.scan_token();
+
+        match result {
+            Err(_) => (),
+            _ => panic!("Should have failed")
+        }
+    }
+
+    #[test]
+    fn handle_string_literal_multiline() {
+        let source = "\"ABC\ndef\"";
+        let mut scanner = Scanner::new(source);
+        let _ = scanner.scan_token().unwrap();
+
+        assert_eq!(scanner.tokens.len(), 1);
+        assert_eq!(scanner.tokens[0].token_type, StringKing);
+        match scanner.tokens[0].literal.clone().unwrap() {
+            StringValue(val) => assert_eq!(val, "ABC\ndef"),
             _ => panic!("Incorrect literal type")
         }
     }
