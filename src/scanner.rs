@@ -2,7 +2,16 @@ use crate::LiteralValue::{FValue, StringValue};
 use std::string::String;
 
 fn is_digit(ch: char) -> bool {
-    return (ch as u8) >= '0' as u8 && (ch as u8) <= '9' as u8;
+    (ch as u8) >= '0' as u8 && (ch as u8) <= '9' as u8
+}
+
+fn is_alpha(ch: char) ->bool {
+    let uch = ch as u8;
+    (uch >= 'a' as u8 && uch <= 'z' as u8) || (uch >= 'A' as u8 && uch <= 'Z' as u8) || (ch == '_')
+}
+
+fn is_alpha_numeric(ch: char) ->bool {
+    is_alpha(ch) || is_digit(ch)
 }
 
 pub struct Scanner {
@@ -121,7 +130,9 @@ impl Scanner {
             '"' => self.string()?,
             c => {
                 if is_digit(c) {
-                    let _ = self.number();
+                    let _ = self.number()?;
+                } else if is_alpha(c) {
+                    self.identifier()
                 } else {
                     return Err(format!(
                         "Unrecognised character at line {}: {}",
@@ -132,6 +143,14 @@ impl Scanner {
         }
 
         Ok(())
+    }
+
+    fn identifier(self: &mut Self) {
+        while is_alpha_numeric(self.peek()) {
+            self.advance();
+        }
+
+        self.add_token(Identifier);
     }
 
     fn number(self: &mut Self) -> Result<(), String> {
@@ -424,5 +443,20 @@ mod tests {
             Some(FValue(val)) => assert_eq!(val, 5.0),
             _ => panic!("Incorrect literal type"),
         }
+    }
+
+    #[test]
+    fn handle_identifier() {
+        let source = "this_is_a_var = 12;";
+        let mut scanner = Scanner::new(source);
+        let _ = scanner.scan_tokens().unwrap();
+
+        assert_eq!(scanner.tokens.len(), 5);
+        assert_eq!(scanner.tokens[0].token_type, Identifier);
+        assert_eq!(scanner.tokens[1].token_type, Equal);
+        assert_eq!(scanner.tokens[2].token_type, Number);
+        assert_eq!(scanner.tokens[3].token_type, Semicolon);
+        assert_eq!(scanner.tokens[4].token_type, Eof);
+
     }
 }
