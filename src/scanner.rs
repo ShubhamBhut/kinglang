@@ -1,5 +1,9 @@
+use crate::LiteralValue::{FValue, StringValue};
 use std::string::String;
-use crate::LiteralValue::StringValue;
+
+fn is_digit(ch: char) -> bool {
+    return (ch as u8) >= '0' as u8 && (ch as u8) <= '9' as u8;
+}
 
 pub struct Scanner {
     source: String,
@@ -43,7 +47,7 @@ impl Scanner {
             for error in errors {
                 joined_errors.push_str(&error);
                 joined_errors.push_str("\n");
-            };
+            }
             return Err(joined_errors);
         }
 
@@ -75,7 +79,7 @@ impl Scanner {
                     Equal
                 };
                 self.add_token(token);
-            },
+            }
             '=' => {
                 let token = if self.char_match('=') {
                     EqualEqual
@@ -83,7 +87,7 @@ impl Scanner {
                     Equal
                 };
                 self.add_token(token);
-            },
+            }
             '<' => {
                 let token = if self.char_match('=') {
                     LessEqual
@@ -91,7 +95,7 @@ impl Scanner {
                     Less
                 };
                 self.add_token(token);
-            },
+            }
             '>' => {
                 let token = if self.char_match('=') {
                     GreaterEqual
@@ -99,7 +103,7 @@ impl Scanner {
                     Greater
                 };
                 self.add_token(token);
-            },
+            }
             '/' => {
                 if self.char_match('/') {
                     loop {
@@ -111,22 +115,57 @@ impl Scanner {
                 } else {
                     self.add_token(Slash);
                 }
-            },
-            ' ' | '\r' | '\t' => {},
+            }
+            ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string()?,
-            _ => {
-                return Err(format!(
-                    "Unrecognised character at line {}: {}",
-                    self.line, c
-                ))
+            c => {
+                if is_digit(c) {
+                    let _ = self.number();
+                } else {
+                    return Err(format!(
+                        "Unrecognised character at line {}: {}",
+                        self.line, c
+                    ));
+                }
             }
         }
 
         Ok(())
     }
 
-    fn string(self: &mut Self) -> Result<(), String>{
+    fn number(self: &mut Self) -> Result<(), String> {
+        while is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' && is_digit(self.peek_next()) {
+            self.advance();
+
+            while is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+
+        let substring = &self.source[self.start..self.current];
+        let value = substring.parse::<f64>();
+        match value {
+            Ok(value) => self.add_token_lit(Number, Some(LiteralValue::FValue(value))),
+            Err(_) => return Err(format!("Couldn't parse the number: {}", substring)),
+        }
+
+        Ok(())
+    }
+
+    fn peek_next(self: &Self) -> char {
+        if self.current + 1 >= self.source.len() {
+            return '\0';
+        }
+
+        self.source.chars().nth(self.current + 1).unwrap()
+    }
+
+    fn string(self: &mut Self) -> Result<(), String> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -140,8 +179,11 @@ impl Scanner {
 
         self.advance();
 
-        let value = self.source.as_bytes()[self.start+1 .. self.current-1].iter().map(|byt| *byt as char).collect::<String>();
-        
+        let value = self.source.as_bytes()[self.start + 1..self.current - 1]
+            .iter()
+            .map(|byt| *byt as char)
+            .collect::<String>();
+
         self.add_token_lit(StringKing, Some(StringValue(value)));
 
         Ok(())
@@ -179,7 +221,9 @@ impl Scanner {
 
     fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
         let mut text = "".to_string();
-        let lit = self.source[self.start .. self.current].chars().map(|ch| text.push(ch));
+        let _lit = self.source[self.start..self.current]
+            .chars()
+            .map(|ch| text.push(ch));
 
         self.tokens.push(Token {
             token_type: token_type,
@@ -304,7 +348,7 @@ mod tests {
         assert_eq!(scanner.tokens[4].token_type, Eof);
     }
 
-    #[test] 
+    #[test]
     fn handle_two_char_tokens() {
         let source = "= != == >=";
         let mut scanner = Scanner::new(source);
@@ -326,9 +370,9 @@ mod tests {
 
         assert_eq!(scanner.tokens.len(), 1);
         assert_eq!(scanner.tokens[0].token_type, StringKing);
-        match scanner.tokens[0].literal.clone().unwrap() {
+        match scanner.tokens[0].literal.as_ref().unwrap() {
             StringValue(val) => assert_eq!(val, "ABC"),
-            _ => panic!("Incorrect literal type")
+            _ => panic!("Incorrect literal type"),
         }
     }
 
@@ -340,7 +384,7 @@ mod tests {
 
         match result {
             Err(_) => (),
-            _ => panic!("Should have failed")
+            _ => panic!("Should have failed"),
         }
     }
 
@@ -352,9 +396,33 @@ mod tests {
 
         assert_eq!(scanner.tokens.len(), 1);
         assert_eq!(scanner.tokens[0].token_type, StringKing);
-        match scanner.tokens[0].literal.clone().unwrap() {
+        match scanner.tokens[0].literal.as_ref().unwrap() {
             StringValue(val) => assert_eq!(val, "ABC\ndef"),
-            _ => panic!("Incorrect literal type")
+            _ => panic!("Incorrect literal type"),
+        }
+    }
+
+    #[test]
+    fn handle_number_literals() {
+        let source = "123.123\n321.0\n5";
+        let mut scanner = Scanner::new(source);
+        let _ = scanner.scan_tokens().unwrap();
+
+        assert_eq!(scanner.tokens.len(), 4);
+        for _ in 0..3 {
+            assert_eq!(scanner.tokens[0].token_type, Number);
+        }
+        match scanner.tokens[0].literal {
+            Some(FValue(val)) => assert_eq!(val, 123.123),
+            _ => panic!("Incorrect literal type"),
+        }
+        match scanner.tokens[1].literal {
+            Some(FValue(val)) => assert_eq!(val, 321.0),
+            _ => panic!("Incorrect literal type"),
+        }
+        match scanner.tokens[2].literal {
+            Some(FValue(val)) => assert_eq!(val, 5.0),
+            _ => panic!("Incorrect literal type"),
         }
     }
 }
