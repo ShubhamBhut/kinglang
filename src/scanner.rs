@@ -14,7 +14,7 @@ fn is_alpha_numeric(ch: char) -> bool {
     is_alpha(ch) || is_digit(ch)
 }
 
-fn get_keywords_hashmap() ->HashMap<&'static str, TokenType> {
+fn get_keywords_hashmap() -> HashMap<&'static str, TokenType> {
     HashMap::from([
         ("and", And),
         ("class", Class),
@@ -42,7 +42,7 @@ pub struct Scanner {
     current: usize,
     line: u64,
 
-    keywords: HashMap<&'static str, TokenType>
+    keywords: HashMap<&'static str, TokenType>,
 }
 
 impl Scanner {
@@ -174,13 +174,12 @@ impl Scanner {
             self.advance();
         }
 
-        let substring = &self.source[self.start .. self.current];
+        let substring = &self.source[self.start..self.current];
         if let Some(token_type) = self.keywords.get(substring) {
             self.add_token(token_type.clone());
         } else {
             self.add_token(Identifier);
         }
-
     }
 
     fn number(self: &mut Self) -> Result<(), String> {
@@ -250,7 +249,7 @@ impl Scanner {
             return false;
         }
         if self.source.as_bytes()[self.current] as char != ch {
-             false
+            false
         } else {
             self.current += 1;
             true
