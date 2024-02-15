@@ -1,3 +1,4 @@
+mod expr;
 mod scanner;
 use crate::scanner::*;
 
@@ -22,7 +23,7 @@ fn run(contents: &str) -> Result<(), String> {
         println!("{:?}", token)
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn run_prompt() -> Result<(), String> {

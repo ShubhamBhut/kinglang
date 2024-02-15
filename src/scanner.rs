@@ -250,10 +250,10 @@ impl Scanner {
             return false;
         }
         if self.source.as_bytes()[self.current] as char != ch {
-            return false;
+             false
         } else {
             self.current += 1;
-            return true;
+            true
         }
     }
 
@@ -347,10 +347,10 @@ pub enum LiteralValue {
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<LiteralValue>,
-    line_number: u64,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: Option<LiteralValue>,
+    pub line_number: u64,
 }
 
 impl Token {
