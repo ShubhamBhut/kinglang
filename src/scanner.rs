@@ -1,4 +1,3 @@
-use crate::LiteralValue::{FValue, StringValue};
 use std::{collections::HashMap, string::String};
 
 fn is_digit(ch: char) -> bool {
@@ -40,7 +39,7 @@ pub struct Scanner {
     tokens: Vec<Token>,
     start: usize,
     current: usize,
-    line: u64,
+    line: usize,
 
     keywords: HashMap<&'static str, TokenType>,
 }
@@ -109,7 +108,7 @@ impl Scanner {
                 let token = if self.char_match('=') {
                     BangEqual
                 } else {
-                    Equal
+                    Bang
                 };
                 self.add_token(token);
             }
@@ -175,8 +174,8 @@ impl Scanner {
         }
 
         let substring = &self.source[self.start..self.current];
-        if let Some(token_type) = self.keywords.get(substring) {
-            self.add_token(token_type.clone());
+        if let Some(&token_type) = self.keywords.get(substring) {
+            self.add_token(token_type);
         } else {
             self.add_token(Identifier);
         }
@@ -227,12 +226,9 @@ impl Scanner {
 
         self.advance();
 
-        let value = self.source.as_bytes()[self.start + 1..self.current - 1]
-            .iter()
-            .map(|byt| *byt as char)
-            .collect::<String>();
+        let value = &self.source[self.start + 1..self.current - 1];
 
-        self.add_token_lit(StringKing, Some(StringValue(value)));
+        self.add_token_lit(StringKing, Some(StringValue(value.to_string())));
 
         Ok(())
     }
@@ -241,14 +237,14 @@ impl Scanner {
         if self.is_at_end() {
             return '\0';
         }
-        self.source.as_bytes()[self.current] as char
+        self.source.chars().nth(self.current).unwrap()
     }
 
     fn char_match(self: &mut Self, ch: char) -> bool {
         if self.is_at_end() {
             return false;
         }
-        if self.source.as_bytes()[self.current] as char != ch {
+        if self.source.chars().nth(self.current).unwrap() != ch {
             false
         } else {
             self.current += 1;
@@ -257,7 +253,8 @@ impl Scanner {
     }
 
     fn advance(self: &mut Self) -> char {
-        let c = self.source.as_bytes()[self.current];
+
+        let c = self.source.chars().nth(self.current).unwrap();
         self.current += 1;
 
         c as char
@@ -279,7 +276,7 @@ impl Scanner {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     //single char
     LeftParen,
@@ -333,6 +330,12 @@ pub enum TokenType {
 
 use TokenType::*;
 
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
     IntValue(i64),
@@ -340,13 +343,14 @@ pub enum LiteralValue {
     StringValue(String),
     IdentifierValue(String),
 }
+use LiteralValue::*;
 
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub literal: Option<LiteralValue>,
-    pub line_number: u64,
+    pub line_number: usize,
 }
 
 impl Token {
@@ -354,7 +358,7 @@ impl Token {
         token_type: TokenType,
         lexeme: String,
         literal: Option<LiteralValue>,
-        line_number: u64,
+        line_number: usize,
     ) -> Self {
         Self {
             token_type,
@@ -366,12 +370,6 @@ impl Token {
 
     pub fn to_string(self: &Self) -> String {
         format!("{} {} {:?}", self.token_type, self.lexeme, self.literal)
-    }
-}
-
-impl std::fmt::Display for TokenType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
 

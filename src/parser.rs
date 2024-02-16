@@ -1,5 +1,3 @@
-use core::panic;
-
 use crate::expr::{Expr, Expr::*, LiteralValue};
 use crate::scanner::{Token, TokenType, TokenType::*};
 
@@ -163,7 +161,7 @@ impl Parser {
 
     fn match_tokens(self: &mut Self, t_types: &[TokenType]) -> bool {
         for t_type in t_types {
-            if self.match_token(t_type.clone()) {
+            if self.match_token(*t_type) {
                 return true;
             }
         }
@@ -171,7 +169,6 @@ impl Parser {
     }
 
     fn advance(self: &mut Self) -> Token {
-        let token = self.peek();
         if !self.is_at_end() {
             self.current += 1;
         }
@@ -179,15 +176,15 @@ impl Parser {
         self.previous()
     }
 
-    fn peek(self: &Self) -> Token {
+    fn peek(self: &mut Self) -> Token {
         self.tokens[self.current].clone()
     }
 
-    fn previous(self: &Self) -> Token {
+    fn previous(self: &mut Self) -> Token {
         self.tokens[self.current - 1].clone()
     }
 
-    fn is_at_end(self: &Self) -> bool {
+    fn is_at_end(self: &mut Self) -> bool {
         self.peek().token_type == Eof
     }
 

@@ -1,6 +1,6 @@
-use crate::scanner::{self, Token, TokenType::*};
-use core::panic;
+use crate::scanner::{self, Token, TokenType};
 
+#[derive(Debug, Clone)]
 pub enum LiteralValue {
     Number(f32),
     StringValue(String),
@@ -8,6 +8,7 @@ pub enum LiteralValue {
     False,
     Nil,
 }
+use LiteralValue::*;
 
 fn unwrap_as_f32(literal: Option<scanner::LiteralValue>) -> f32 {
     match literal {
@@ -28,22 +29,44 @@ fn unwrap_as_string(literal: Option<scanner::LiteralValue>) -> String {
 impl LiteralValue {
     pub fn to_string(&self) -> String {
         match self {
-            Self::Number(x) => x.to_string(),
-            Self::StringValue(x) => x.clone(),
-            Self::True => "true".to_string(),
-            Self::False => "false".to_string(),
-            Self::Nil => "nil".to_string(),
+            LiteralValue::Number(x) => x.to_string(),
+            LiteralValue::StringValue(x) => x.clone(),
+            LiteralValue::True => "true".to_string(),
+            LiteralValue::False => "false".to_string(),
+            LiteralValue::Nil => "nil".to_string(),
         }
     }
 
     pub fn from_token(token: Token) -> Self {
         match token.token_type {
-            Number => Self::Number(unwrap_as_f32(token.literal)),
-            StringKing => Self::StringValue(unwrap_as_string(token.literal)),
-            False => Self::False,
-            True => Self::True,
-            Nil => Self::Nil,
+            TokenType::Number => Self::Number(unwrap_as_f32(token.literal)),
+            TokenType::StringKing => Self::StringValue(unwrap_as_string(token.literal)),
+            TokenType::False => Self::False,
+            TokenType::True => Self::True,
+            TokenType::Nil => Self::Nil,
             _ => panic!("Could not create LiteralValue from {:?}", token),
+        }
+    }
+
+    pub fn is_false(self: &Self) -> LiteralValue {
+        match self {
+            Number(x) => {
+                if *x == 0.0 as f32 {
+                    True
+                } else {
+                    False
+                }
+            }
+            StringValue(s) => {
+                if s.len() == 0 {
+                    True
+                } else {
+                    False
+                }
+            }
+            True => False,
+            False => True,
+            Nil => True,
         }
     }
 }
@@ -86,16 +109,40 @@ impl Expr {
                 )
             }
             Expr::Grouping { expression } => {
-                format!("(group {})", expression.to_string())
+                format!("(group {})", (*expression).to_string())
             }
             Expr::Literal { value } => {
                 format!("{}", value.to_string())
             }
             Expr::Unary { operator, right } => {
-                let operator_str = &operator.lexeme;
-                let right_str = right.to_string();
+                let operator_str = operator.lexeme.clone();
+                let right_str = (*right).to_string();
                 format!("({} {})", operator_str, right_str)
             }
+        }
+    }
+
+    pub fn evaluate(self: &Self) -> Result<LiteralValue, String> {
+        match self {
+            Expr::Literal { value } => Ok((*value).clone()),
+            Expr::Grouping { expression } => expression.evaluate(),
+            Expr::Unary { operator, right } => {
+                let right = right.evaluate()?;
+
+                match (&right, operator.token_type) {
+                    (Number(x), TokenType::Minus) => Ok(Number(-x)),
+                    (_, TokenType::Minus) => {
+                        return Err(format!("Minus not implemented for  {}", right.to_string()))
+                    }
+                    (any, TokenType::Bang) => Ok(any.is_false()),
+                    (_, ttype) => Err(format!("{} is not a valid unary operator", ttype)),
+                }
+            }
+            Expr::Binary {
+                left,
+                operator,
+                right,
+            } => todo!(),
         }
     }
 }
