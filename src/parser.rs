@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::expr::{Expr, Expr::*, LiteralValue};
 use crate::scanner::{Token, TokenType, TokenType::*};
 
@@ -19,11 +21,15 @@ macro_rules! match_tokens {
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, current: 0 }
     }
 
-    pub fn expression(self: &mut Self) -> Result<Expr, String> {
+    pub fn parse(self: &mut Self) -> Result<Expr, String> {
+        self.expression()
+    }
+
+    fn expression(self: &mut Self) -> Result<Expr, String> {
         self.equality()
     }
 
@@ -107,21 +113,27 @@ impl Parser {
 
     fn primary(self: &mut Self) -> Result<Expr, String> {
         let token = self.peek();
-        if self.match_token(LeftParen) {
-            let expr = self.expression()?;
-            let _ = self.consume(RightParen, "Expected ')'");
-            Ok(Grouping {
-                expression: Box::from(expr),
-            })
-        } else {
-            self.advance();
-            Ok(Literal {
-                value: LiteralValue::from_token(token),
-            })
+
+        let result;
+        match token.token_type {
+            LeftParen => {
+                let expr = self.expression()?;
+                self.consume(RightParen, "Expected ')'")?;
+                result = Grouping { expression: Box::from(expr) };
+            }
+
+            False | True | Nil | Number | StringKing => { result = 
+               Literal { value: LiteralValue::from_token(token) } }
+            
+            _ => return Err("Expected expression".to_string())
         }
+
+        self.advance();
+
+        Ok(result)
     }
 
-    fn consume(self: &mut Self, token_type: TokenType, msg: &str) ->Result<(), String> {
+    fn consume(self: &mut Self, token_type: TokenType, msg: &str) -> Result<(), String> {
         let token = self.peek();
         if token.token_type == token_type {
             self.advance();
@@ -173,12 +185,29 @@ impl Parser {
     fn is_at_end(self: &Self) -> bool {
         self.peek().token_type == Eof
     }
+
+    fn synchronize(self: &mut Self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            if self.previous().token_type == Semicolon {
+                return;
+            }
+        }
+
+        match self.peek().token_type {
+            Class | Fun | Var | For | If | While | Print | Return => return,
+            _ => (),
+        }
+
+        self.advance();
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LiteralValue::IntValue, scanner::Scanner};
+    use crate::{scanner::Scanner, LiteralValue::IntValue};
 
     #[test]
     fn handle_addition() {
@@ -209,7 +238,7 @@ mod tests {
 
         let tokens = vec![one, plus, two, semicolon];
         let mut parser = Parser::new(tokens);
-        let parsed_expr = parser.expression();
+        let parsed_expr = parser.parse();
         let string_expr = parsed_expr.unwrap().to_string();
 
         assert_eq!(string_expr, "(+ 1 2)");
@@ -220,11 +249,24 @@ mod tests {
         let source = "1 + 2 == 5 + 7";
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens();
-        
+
         let mut parser = Parser::new(tokens.unwrap());
-        let parsed_expr = parser.expression();
+        let parsed_expr = parser.parse();
         let string_expr = parsed_expr.unwrap().to_string();
 
         assert_eq!(string_expr, "(== (+ 1 2) (+ 5 7))");
+    }
+
+    #[test]
+    fn handle_equality_with_paren() {
+        let source = "2 == (2 + 1)";
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        let mut parser = Parser::new(tokens.unwrap());
+        let parsed_expr = parser.parse();
+        let string_expr = parsed_expr.unwrap().to_string();
+
+        assert_eq!(string_expr, "(== (2) (+ 2 1) )");
     }
 }
