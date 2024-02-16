@@ -268,7 +268,7 @@ impl Scanner {
     }
 
     fn add_token_lit(self: &mut Self, token_type: TokenType, literal: Option<LiteralValue>) {
-        let text = self.source[self.start .. self.current].to_string();
+        let text = self.source[self.start..self.current].to_string();
 
         self.tokens.push(Token {
             token_type: token_type,

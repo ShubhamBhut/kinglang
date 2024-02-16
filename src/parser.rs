@@ -117,18 +117,23 @@ impl Parser {
         let result;
         match token.token_type {
             LeftParen => {
+                self.advance();
                 let expr = self.expression()?;
                 self.consume(RightParen, "Expected ')'")?;
-                result = Grouping { expression: Box::from(expr) };
+                result = Grouping {
+                    expression: Box::from(expr),
+                };
             }
 
-            False | True | Nil | Number | StringKing => { result = 
-               Literal { value: LiteralValue::from_token(token) } }
-            
-            _ => return Err("Expected expression".to_string())
-        }
+            False | True | Nil | Number | StringKing => {
+                self.advance();
+                result = Literal {
+                    value: LiteralValue::from_token(token),
+                }
+            }
 
-        self.advance();
+            _ => return Err("Expected expression".to_string()),
+        }
 
         Ok(result)
     }
@@ -267,6 +272,6 @@ mod tests {
         let parsed_expr = parser.parse();
         let string_expr = parsed_expr.unwrap().to_string();
 
-        assert_eq!(string_expr, "(== (2) (+ 2 1) )");
+        assert_eq!(string_expr, "(== 2 (group (+ 2 1)))");
     }
 }
