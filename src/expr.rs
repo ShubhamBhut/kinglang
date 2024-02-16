@@ -1,5 +1,5 @@
+use crate::scanner::{self, Token, TokenType::*};
 use core::panic;
-use crate::scanner::{Token, self, TokenType::*};
 
 pub enum LiteralValue {
     Number(f32),
@@ -13,7 +13,7 @@ fn unwrap_as_f32(literal: Option<scanner::LiteralValue>) -> f32 {
     match literal {
         Some(scanner::LiteralValue::IntValue(x)) => x as f32,
         Some(scanner::LiteralValue::FValue(x)) => x as f32,
-        _ => panic!("Could not unwrap as f32")
+        _ => panic!("Could not unwrap as f32"),
     }
 }
 
@@ -21,10 +21,9 @@ fn unwrap_as_string(literal: Option<scanner::LiteralValue>) -> String {
     match literal {
         Some(scanner::LiteralValue::StringValue(s)) => s.clone(),
         Some(scanner::LiteralValue::IdentifierValue(s)) => s.clone(),
-        _ => panic!("Could not unwrap as String")
+        _ => panic!("Could not unwrap as String"),
     }
 }
-
 
 impl LiteralValue {
     pub fn to_string(&self) -> String {
@@ -37,14 +36,14 @@ impl LiteralValue {
         }
     }
 
-    pub fn from_token(token: Token) ->Self {
+    pub fn from_token(token: Token) -> Self {
         match token.token_type {
             Number => Self::Number(unwrap_as_f32(token.literal)),
             StringKing => Self::StringValue(unwrap_as_string(token.literal)),
             False => Self::False,
             True => Self::True,
             Nil => Self::Nil,
-            _ => panic!("Could not create LiteralValue from {:?}", token)
+            _ => panic!("Could not create LiteralValue from {:?}", token),
         }
     }
 }
@@ -104,7 +103,6 @@ impl Expr {
 #[cfg(test)]
 mod tests {
     use super::Expr::*;
-    use super::LiteralValue::*;
     use super::*;
     use crate::TokenType;
 
@@ -117,11 +115,11 @@ mod tests {
             line_number: 1,
         };
         let onetwothree = Literal {
-            value: Number(123.0),
+            value: LiteralValue::Number(123.0),
         };
         let grouping = Grouping {
             expression: Box::from(Literal {
-                value: Number(45.67),
+                value: LiteralValue::Number(45.67),
             }),
         };
         let multi_operator = Token {
