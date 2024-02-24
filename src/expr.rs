@@ -48,6 +48,14 @@ impl LiteralValue {
         }
     }
 
+    pub fn from_bool(b: bool) -> Self {
+        if b {
+            True
+        } else {
+            False
+        }
+    }
+
     pub fn is_false(self: &Self) -> LiteralValue {
         match self {
             Number(x) => {
@@ -142,7 +150,52 @@ impl Expr {
                 left,
                 operator,
                 right,
-            } => todo!(),
+            } => {
+                let left = left.evaluate()?;
+                let right = right.evaluate()?;
+
+                match (&left, operator.token_type, &right) {
+                    (Number(x), TokenType::Plus, Number(y)) => Ok(Number(x + y)),
+                    (Number(x), TokenType::Minus, Number(y)) => Ok(Number(x - y)),
+                    (Number(x), TokenType::Star, Number(y)) => Ok(Number(x * y)),
+                    (Number(x), TokenType::Slash, Number(y)) => Ok(Number(x / y)),
+                    (Number(x), TokenType::Greater, Number(y)) => {
+                        Ok(LiteralValue::from_bool(x > y))
+                    }
+                    (Number(x), TokenType::GreaterEqual, Number(y)) => {
+                        Ok(LiteralValue::from_bool(x >= y))
+                    }
+                    (Number(x), TokenType::Less, Number(y)) => Ok(LiteralValue::from_bool(x < y)),
+                    (Number(x), TokenType::LessEqual, Number(y)) => {
+                        Ok(LiteralValue::from_bool(x <= y))
+                    }
+                    (Number(x), TokenType::BangEqual, Number(y)) => {
+                        Ok(LiteralValue::from_bool(x != y))
+                    }
+                    (Number(x), TokenType::EqualEqual, Number(y)) => {
+                        Ok(LiteralValue::from_bool(x == y))
+                    }
+                    (StringValue(_), operator, Number(_)) => Err(format!(
+                        "{} cannot operate between String and Number",
+                        operator
+                    )),
+                    (Number(_), operator, StringValue(_)) => Err(format!(
+                        "{} cannot operate between Number and String",
+                        operator
+                    )),
+                    (StringValue(x), TokenType::Plus, StringValue(y)) => {
+                        Ok(StringValue(format!("{}{}", x, y)))
+                    }
+                    (StringValue(x), TokenType::BangEqual, StringValue(y)) => {
+                        Ok(LiteralValue::from_bool(x != y))
+                    }
+                    (StringValue(x), TokenType::EqualEqual, StringValue(y)) => {
+                        Ok(LiteralValue::from_bool(x == y))
+                    }
+                    _ => todo!(),
+                }
+            }
+            _ => Err("Can't perform binary operation on given values".to_string()),
         }
     }
 }
